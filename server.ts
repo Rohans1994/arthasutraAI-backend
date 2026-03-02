@@ -8,6 +8,7 @@ import {
     generatePortfolio,
     analyzeExistingPortfolio
 } from './services/gemini';
+import { getLoginUrl, generateSession, getHoldings } from './services/zerodha';
 
 dotenv.config();
 
@@ -65,6 +66,39 @@ app.post('/api/portfolio/analyze', async (req, res) => {
     } catch (error: any) {
         console.error("Error in /api/portfolio/analyze:", error);
         res.status(500).json({ error: error.message, stack: error.stack });
+    }
+});
+
+// Zerodha Routes
+app.get('/api/zerodha/login', (req, res) => {
+    res.json({ url: getLoginUrl() });
+});
+
+app.post('/api/zerodha/callback', async (req, res) => {
+    try {
+        const { requestToken, uid } = req.body;
+        if (!requestToken || !uid) return res.status(400).json({ success: false, error: 'Missing token or uid' });
+
+        const success = await generateSession(requestToken, uid);
+        if (success) {
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ success: false, error: 'Failed to generate session' });
+        }
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/zerodha/holdings', async (req, res) => {
+    try {
+        const uid = req.query.uid as string;
+        if (!uid) return res.status(400).json({ error: 'Missing uid' });
+
+        const holdings = await getHoldings(uid);
+        res.json({ success: true, holdings });
+    } catch (error: any) {
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
